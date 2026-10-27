@@ -1,0 +1,22 @@
+{% extends "builder/base.html" %}
+{% block title %}Create account · ProCV Builder{% endblock %}
+{% block content %}
+<section class="auth-wrap">
+  <div class="auth-card">
+    <p class="eyebrow">A MORE CONFIDENT APPLICATION</p>
+    <h1>Create your account</h1>
+    <p class="muted">Your documents are private and saved to your account.</p>
+    <form method="post" class="stack-form">{% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<small class="help-text">{{ field.help_text|safe }}</small>{% endif %}
+        {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+      {% endfor %}
+      <button class="button primary full" type="submit">Create account</button>
+    </form>
+    <p class="auth-foot">Already have an account? <a href="{% url 'login' %}">Log in</a></p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "builder/base.html" %}
+{% block title %}My documents · ProCV Builder{% endblock %}
+{% block content %}
+<section class="page-shell">
+  <div class="hero-row">
+    <div><p class="eyebrow">CAREER DOCUMENT STUDIO</p><h1>Your next opportunity, on paper.</h1><p class="muted">Create a polished CV, résumé, or cover letter and keep every version in one place.</p></div>
+    <div class="new-card">
+      <h2>Start a document</h2>
+      <form method="post" action="{% url 'create_document' %}" class="create-form">
+        {% csrf_token %}
+        <label class="sr-only" for="new-kind">Document type</label>
+        <select name="kind" id="new-kind">{% for value,label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+        <label class="sr-only" for="new-title">Document title</label>
+        <input id="new-title" name="title" maxlength="120" placeholder="Give it a name (optional)">
+        <button class="button primary" type="submit">Create document <span aria-hidden="true">→</span></button>
+      </form>
+    </div>
+  </div>
+  <div class="section-heading">
+    <div><h2>My documents <span class="count">{{ documents|length }}</span></h2><p class="muted">Your saved work, ready whenever you are.</p></div>
+    <form method="get" class="filters">
+      <input type="search" name="q" value="{{ query }}" placeholder="Search documents" aria-label="Search documents">
+      <select name="kind" aria-label="Filter by document type"><option value="">All types</option>{% for value,label in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      <button class="button secondary" type="submit">Filter</button>
+    </form>
+  </div>
+  {% if documents %}
+    <div class="document-grid">
+      {% for document in documents %}
+        <article class="document-card">
+          <a class="document-open" href="{% url 'edit_document' document.pk %}">
+            <div class="mini-page mini-{{ document.template }}"><span></span><i></i><i></i><i></i><b></b><i></i></div>
+            <div class="doc-info"><span class="doc-kind">{{ document.get_kind_display }}</span><h3>{{ document.title }}</h3><p>Edited {{ document.updated_at|date:"M j, Y · g:i A" }}</p></div>
+          </a>
+          <div class="card-actions">
+            <a href="{% url 'edit_document' document.pk %}">Edit</a><a href="{% url 'download_pdf' document.pk %}">PDF</a>
+            <form method="post" action="{% url 'duplicate_document' document.pk %}">{% csrf_token %}<button type="submit">Duplicate</button></form>
+            <form method="post" action="{% url 'delete_document' document.pk %}" onsubmit="return confirm('Delete this document permanently?')">{% csrf_token %}<button class="danger-link" type="submit">Delete</button></form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state"><div class="empty-icon">✦</div><h2>Your workspace is ready</h2><p class="muted">Create your first document to start shaping your next career move.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

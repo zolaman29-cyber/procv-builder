@@ -1,0 +1,76 @@
+{% extends "builder/base.html" %}
+{% load static %}
+{% block title %}{{ document.title }} · ProCV Builder{% endblock %}
+{% block extra_head %}<script src="{% static 'builder/editor.js' %}" defer></script>{% endblock %}
+{% block content %}
+<form class="csrf-source" aria-hidden="true">{% csrf_token %}</form>
+{{ document.content|json_script:"initial-content" }}
+<div class="editor-top">
+  <a class="back-link" href="{% url 'dashboard' %}">← Documents</a>
+  <input class="document-title" id="document-title" value="{{ document.title }}" maxlength="120" aria-label="Document title">
+  <span id="save-state" class="save-state">All changes saved</span>
+  <div class="editor-actions">
+    <a class="button secondary" href="{% url 'download_pdf' document.pk %}">Download PDF</a>
+    <button class="button secondary" type="button" id="print-button">Print</button>
+  </div>
+</div>
+<div class="editor-layout" id="editor" data-save-url="{% url 'save_document' document.pk %}">
+  <aside class="editor-panel">
+    <div class="panel-intro"><p class="eyebrow">DOCUMENT CONTENT</p><h1>Build your story</h1><p class="muted small">Your work autosaves as you edit.</p></div>
+    <section class="form-section">
+      <h2>Personal details</h2>
+      <div class="field-grid">
+        <label>Full name<input data-field="name" placeholder="Jordan Taylor"></label>
+        <label>Professional title<input data-field="job_title" placeholder="Product Designer"></label>
+        <label>Email<input data-field="email" type="email" placeholder="jordan@example.com"></label>
+        <label>Phone<input data-field="phone" placeholder="+1 555 010 2020"></label>
+        <label>Location<input data-field="location" placeholder="City, Country"></label>
+        <label>LinkedIn<input data-field="linkedin" placeholder="linkedin.com/in/you"></label>
+        <label>Website<input data-field="website" placeholder="yourportfolio.com"></label>
+      </div>
+    </section>
+    <section class="form-section"><h2>Professional summary</h2><label class="sr-only" for="field-summary">Professional summary</label><textarea id="field-summary" data-field="summary" rows="4" placeholder="A concise introduction highlighting your experience and strengths."></textarea></section>
+    <section class="form-section repeated-section" data-list="experience">
+      <div class="section-line"><h2>Experience</h2><button class="add-entry" type="button">+ Add</button></div>
+      <div class="entry-list"></div>
+    </section>
+    <section class="form-section repeated-section" data-list="education">
+      <div class="section-line"><h2>Education</h2><button class="add-entry" type="button">+ Add</button></div>
+      <div class="entry-list"></div>
+    </section>
+    <section class="form-section">
+      <h2>Skills</h2><label class="sr-only" for="field-skills">Skills, one per line</label><textarea id="field-skills" data-field="skills" rows="4" placeholder="Research&#10;Figma&#10;Communication"></textarea><small class="help-text">Enter one skill per line.</small>
+    </section>
+    <section class="form-section repeated-section" data-list="projects">
+      <div class="section-line"><h2>Projects</h2><button class="add-entry" type="button">+ Add</button></div>
+      <div class="entry-list"></div>
+    </section>
+    <section class="form-section repeated-section" data-list="certifications">
+      <div class="section-line"><h2>Certifications</h2><button class="add-entry" type="button">+ Add</button></div>
+      <div class="entry-list"></div>
+    </section>
+  </aside>
+  <section class="preview-panel" aria-label="Live document preview">
+    <div class="preview-toolbar"><div><strong>Live preview</strong><span class="muted"> · A4</span></div><label>Template <select id="template-select">{% for key,label in template_choices %}<option value="{{ key }}" {% if document.template == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label></div>
+    <article id="document-preview" class="resume-page template-{{ document.template }}">
+      <header class="resume-header"><h1 data-preview="name">Your Name</h1><p data-preview="job_title" class="resume-job"></p><p data-preview="contact" class="resume-contact"></p></header>
+      <section class="preview-section" data-preview-section="summary"><h2>Profile</h2><p data-preview="summary"></p></section>
+      <section class="preview-section" data-preview-section="experience"><h2>Experience</h2><div data-preview-list="experience"></div></section>
+      <section class="preview-section" data-preview-section="education"><h2>Education</h2><div data-preview-list="education"></div></section>
+      <section class="preview-section" data-preview-section="skills"><h2>Skills</h2><p data-preview="skills"></p></section>
+      <section class="preview-section" data-preview-section="projects"><h2>Projects</h2><div data-preview-list="projects"></div></section>
+      <section class="preview-section" data-preview-section="certifications"><h2>Certifications</h2><div data-preview-list="certifications"></div></section>
+      <footer class="page-number"></footer>
+    </article>
+  </section>
+</div>
+<template id="entry-template">
+  <div class="entry-card">
+    <button type="button" class="remove-entry" aria-label="Remove entry">×</button>
+    <label>Title<input data-entry-field="title" placeholder="Role, degree, or project"></label>
+    <label>Organization<input data-entry-field="company" placeholder="Company or institution"></label>
+    <label>Dates<input data-entry-field="dates" placeholder="2022 – Present"></label>
+    <label>Description<textarea data-entry-field="description" rows="3" placeholder="Describe your work and impact"></textarea></label>
+  </div>
+</template>
+{% endblock %}

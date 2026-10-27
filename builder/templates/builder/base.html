@@ -1,0 +1,26 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
+  <title>{% block title %}ProCV Builder{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'builder/app.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">P</span> ProCV <span class="brand-light">Builder</span></a>
+    {% if request.user.is_authenticated %}
+      <nav class="topnav">
+        <a href="{% url 'dashboard' %}">My documents</a>
+        <span class="user-label">{{ request.user.username }}</span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-button" type="submit">Log out</button></form>
+      </nav>
+    {% endif %}
+  </header>
+  {% if messages %}<div class="toast-area">{% for message in messages %}<div class="toast">{{ message }}</div>{% endfor %}</div>{% endif %}
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
