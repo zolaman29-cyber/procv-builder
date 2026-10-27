@@ -1,0 +1,41 @@
+{% extends "builder/base.html" %}
+{% block title %}Site stats · ProCV Builder{% endblock %}
+{% block content %}
+<section class="page-shell stats-shell">
+  <div class="section-heading">
+    <div><p class="eyebrow">SITE ADMINISTRATION</p><h1>Site stats</h1><p class="muted">Aggregated activity for your site. No visitor identities are stored.</p></div>
+    <form method="get" class="filters">
+      <label class="sr-only" for="stats-days">Activity period</label>
+      <select id="stats-days" name="days">
+        <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+        <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+        <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+      </select>
+      <button class="button secondary" type="submit">Update</button>
+    </form>
+  </div>
+
+  <div class="stats-cards">
+    <article class="stats-card"><span>Total users</span><strong>{{ total_users }}</strong><small>Registered accounts</small></article>
+    <article class="stats-card"><span>Documents</span><strong>{{ total_documents }}</strong><small>Saved across all accounts</small></article>
+    <article class="stats-card"><span>Page views</span><strong>{{ totals.page_views }}</strong><small>Last {{ days }} days · not unique visitors</small></article>
+    <article class="stats-card"><span>PDF downloads</span><strong>{{ totals.pdf_downloads }}</strong><small>Successful exports · last {{ days }} days</small></article>
+    <article class="stats-card"><span>New registrations</span><strong>{{ totals.registrations }}</strong><small>Last {{ days }} days</small></article>
+  </div>
+
+  <section class="stats-table-card">
+    <h2>Daily activity</h2>
+    <p class="muted small">A page view is a successful HTML page load. Reloads count again; these are not unique visitors.</p>
+    <div class="stats-table-scroll">
+      <table class="stats-table">
+        <thead><tr><th scope="col">Date</th><th scope="col">Page views</th><th scope="col">PDF downloads</th><th scope="col">Registrations</th></tr></thead>
+        <tbody>
+          {% for day in chart %}
+            <tr><th scope="row">{{ day.date|date:"M j, Y" }}</th><td>{{ day.page_views }}</td><td>{{ day.pdf_downloads }}</td><td>{{ day.registrations }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
+{% endblock %}

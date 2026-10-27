@@ -42,8 +42,11 @@ When using PostgreSQL, create the database and its login role before running `mi
 - Autosaving editor with a live preview, browser printing, and PDF download.
 - Password reset through the configured email backend.
 - Django admin for authorized staff; private document content is not registered in the admin.
+- Staff-only site stats at `/admin/stats/`, including account and document totals plus daily page views, PDF downloads, and registrations.
 
-The PDF exporter creates selectable text and paginates long documents. Printing uses the browser's print dialog and A4 print CSS. The current editor focuses on core résumé content (contact details, summary, experience, education, skills, projects, and certifications); photo cropping, custom sections, AI writing, DOCX export, and a separate application-specific admin dashboard are not included yet.
+The PDF exporter creates selectable text and paginates long documents. Printing uses the browser's print dialog and A4 print CSS. The current editor focuses on core résumé content (contact details, summary, experience, education, skills, projects, and certifications); photo cropping, custom sections, AI writing, and DOCX export are not included yet.
+
+The site stats page is restricted to accounts with Django's `is_staff` permission. Create the first administrator with `python manage.py createsuperuser`, then sign in at `/admin/` and grant staff access to the intended account. Page views count successful HTML page loads, including reloads; they are not unique visitors. The app stores only daily aggregate counts and does not record visitor identities or IP addresses. PDF downloads count successful PDF exports.
 
 ## Production notes
 
@@ -55,7 +58,7 @@ This project includes a Render Blueprint in `render.yaml`. It configures a free 
 2. Create a free PostgreSQL project on [Neon](https://neon.com/), copy its connection string, and keep it private.
 3. In [Render](https://render.com/), create a Blueprint from your GitHub repository and apply `render.yaml`.
 4. When prompted for `DATABASE_URL`, paste the Neon connection string (including `sslmode=require`). Render will build the app and run database migrations.
-5. When the first deployment is live, open the Render service Shell and run `python manage.py createsuperuser` if you need Django admin access.
+5. When the first deployment is live, open the Render service Shell and run `python manage.py createsuperuser` to create the first administrator and access `/admin/stats/`.
 6. Register a normal user at the deployed URL to start creating documents.
 
 The free Render web service sleeps when idle and may take about a minute to wake. Neon free usage has limits, and free plans can change; review each provider's current limits. If password reset is needed online, configure SMTP variables in the Render service environment. Never put the database URL, secret key, or email credentials in source control.

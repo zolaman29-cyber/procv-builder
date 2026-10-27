@@ -1,5 +1,7 @@
 from django.conf import settings
-from django.db import models
+from django.db import IntegrityError, models, transaction
+from django.db.models import F
+from django.utils import timezone
 
 
 class Document(models.Model):
@@ -24,3 +26,29 @@ class Document(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class DailySiteStat(models.Model):
+    date = models.DateField(unique=True)
+    page_views = models.PositiveIntegerField(default=0)
+    pdf_downloads = models.PositiveIntegerField(default=0)
+    registrations = models.PositiveIntegerField(default=0)
+
+    @classmethod
+    def record(cls, metric):
+        if metric not in {"page_views", "pdf_downloads", "registrations"}:
+            raise ValueError(f"Unknown site-stat metric: {metric}")
+
+        today = timezone.localdate()
+        try:
+            with transaction.atomic():
+                stats, _ = cls.objects.get_or_create(date=today)
+                cls.objects.filter(pk=stats.pk).update(**{metric: F(metric) + 1})
+        except IntegrityError:
+            cls.objects.filter(date=today).update(**{metric: F(metric) + 1})
+
+    class Meta:
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Site stats for {self.date}"

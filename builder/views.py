@@ -1,13 +1,17 @@
 import json
 import re
 from copy import deepcopy
+from datetime import timedelta
 from io import BytesIO
 
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -16,7 +20,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import HRFlowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from .models import Document
+from .models import DailySiteStat, Document
 from .forms import RegistrationForm
 from .templates import TEMPLATES
 
@@ -47,6 +51,7 @@ def register(request):
     form = RegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
+        DailySiteStat.record("registrations")
         login(request, user)
         return redirect("dashboard")
     return render(request, "registration/register.html", {"form": form})
@@ -66,6 +71,47 @@ def dashboard(request):
         "query": query,
         "kind": kind,
         "kinds": Document.Kind.choices,
+    })
+
+
+@staff_member_required
+def site_stats(request):
+    try:
+        days = int(request.GET.get("days", "30"))
+    except ValueError:
+        days = 30
+    if days not in {7, 30, 90}:
+        days = 30
+
+    today = timezone.localdate()
+    start_date = today - timedelta(days=days - 1)
+    daily_stats = {
+        row["date"]: row
+        for row in DailySiteStat.objects.filter(date__range=(start_date, today)).values(
+            "date", "page_views", "pdf_downloads", "registrations",
+        )
+    }
+    chart = [
+        {
+            "date": start_date + timedelta(days=offset),
+            **daily_stats.get(
+                start_date + timedelta(days=offset),
+                {"page_views": 0, "pdf_downloads": 0, "registrations": 0},
+            ),
+        }
+        for offset in range(days)
+    ]
+    totals = {
+        metric: sum(day[metric] for day in chart)
+        for metric in ("page_views", "pdf_downloads", "registrations")
+    }
+    return render(request, "builder/admin_stats.html", {
+        "days": days,
+        "chart": chart,
+        "totals": totals,
+        "max_page_views": max(1, max(day["page_views"] for day in chart)),
+        "total_users": User.objects.count(),
+        "total_documents": Document.objects.count(),
     })
 
 
@@ -288,6 +334,7 @@ def download_pdf(request, pk):
     pdf.build(story, onFirstPage=draw_page, onLaterPages=draw_page)
     response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{safe_filename(document.title)}.pdf"'
+    DailySiteStat.record("pdf_downloads")
     return response
 
 

@@ -8,8 +8,9 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
+from django.utils import timezone
 
-from .models import Document
+from .models import DailySiteStat, Document
 from .templates import TEMPLATES
 
 
@@ -27,11 +28,61 @@ class DocumentAccessTests(TestCase):
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 302)
 
+    def test_only_staff_can_view_site_stats(self):
+        stats_url = reverse("site_stats")
+        self.assertEqual(self.client.get(stats_url).status_code, 302)
+
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(stats_url).status_code, 302)
+
+        self.owner.is_staff = True
+        self.owner.save(update_fields=["is_staff"])
+        self.client.force_login(self.owner)
+        response = self.client.get(stats_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Site stats")
+        self.assertContains(response, "not unique visitors")
+
+    def test_site_stats_summarize_users_documents_and_daily_activity(self):
+        today = timezone.localdate()
+        DailySiteStat.objects.create(
+            date=today,
+            page_views=12,
+            pdf_downloads=3,
+            registrations=1,
+        )
+        self.owner.is_staff = True
+        self.owner.save(update_fields=["is_staff"])
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("site_stats"), {"days": "7"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_users"], 2)
+        self.assertEqual(response.context["total_documents"], 1)
+        self.assertEqual(response.context["totals"]["page_views"], 12)
+        self.assertEqual(response.context["totals"]["pdf_downloads"], 3)
+        self.assertEqual(response.context["totals"]["registrations"], 1)
+        self.assertEqual(len(response.context["chart"]), 7)
+
+    def test_successful_html_page_view_is_recorded_but_admin_page_is_excluded(self):
+        self.client.get(reverse("login"))
+        stats = DailySiteStat.objects.get(date=timezone.localdate())
+        self.assertEqual(stats.page_views, 1)
+
+        self.owner.is_staff = True
+        self.owner.save(update_fields=["is_staff"])
+        self.client.force_login(self.owner)
+        self.client.get(reverse("site_stats"))
+        stats.refresh_from_db()
+        self.assertEqual(stats.page_views, 1)
+
     def test_user_cannot_open_another_users_document(self):
         self.client.force_login(self.other)
         for url_name in ("edit_document", "download_pdf"):
             response = self.client.get(reverse(url_name, args=[self.document.pk]))
             self.assertEqual(response.status_code, 404)
+        self.assertFalse(DailySiteStat.objects.filter(pdf_downloads__gt=0).exists())
 
     def test_owner_can_save_document_content_and_template(self):
         self.client.force_login(self.owner)
@@ -63,6 +114,7 @@ class DocumentAccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertTrue(response.content.startswith(b"%PDF-"))
+        self.assertEqual(DailySiteStat.objects.get(date=timezone.localdate()).pdf_downloads, 1)
 
     def test_pdf_export_uses_selected_template(self):
         self.client.force_login(self.owner)
@@ -85,6 +137,7 @@ class DocumentAccessTests(TestCase):
         })
         self.assertRedirects(response, reverse("dashboard"))
         self.assertEqual(User.objects.get(username="new-person").email, "new-person@example.com")
+        self.assertEqual(DailySiteStat.objects.get(date=timezone.localdate()).registrations, 1)
 
     def test_password_reset_form_is_available(self):
         response = self.client.get(reverse("password_reset"))
