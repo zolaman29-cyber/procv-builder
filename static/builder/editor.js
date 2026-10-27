@@ -8,6 +8,8 @@
   const saveState = document.getElementById("save-state");
   let timer;
   let saveSequence = 0;
+  let saveRevision = 0;
+  let dirty = false;
   let pending = false;
   let failed = false;
 
@@ -97,7 +99,9 @@
 
   async function save() {
     const sequence = ++saveSequence;
+    const revision = saveRevision;
     pending = true;
+    failed = false;
     saveState.textContent = "Saving…";
     saveState.classList.remove("save-error");
     try {
@@ -114,10 +118,11 @@
         throw new Error(result.error || "Could not save changes.");
       }
       if (sequence === saveSequence) {
-        pending = false;
-        failed = false;
-        saveState.textContent = "All changes saved";
+        dirty = revision !== saveRevision;
+        pending = dirty;
+        saveState.textContent = dirty ? "Saving…" : "All changes saved";
       }
+      return sequence === saveSequence && !dirty;
     } catch (error) {
       if (sequence === saveSequence) {
         pending = false;
@@ -125,10 +130,13 @@
         saveState.textContent = error.message || "Save failed. Your changes are still on this page.";
         saveState.classList.add("save-error");
       }
+      return false;
     }
   }
 
   function scheduleSave() {
+    dirty = true;
+    saveRevision++;
     clearTimeout(timer);
     timer = setTimeout(save, 700);
   }
@@ -137,9 +145,19 @@
     preview.className = `resume-page template-${templateSelect.value}`;
     scheduleSave();
   });
+  document.querySelector(".download-pdf").addEventListener("click", async event => {
+    event.preventDefault();
+    const downloadUrl = event.currentTarget.href;
+    clearTimeout(timer);
+    while (dirty) {
+      const saved = await save();
+      if (!saved && failed) return;
+    }
+    if (!failed) window.location.assign(downloadUrl);
+  });
   document.getElementById("print-button").addEventListener("click", () => window.print());
   window.addEventListener("beforeunload", event => {
-    if (pending || failed) {
+    if (dirty || pending || failed) {
       event.preventDefault();
       event.returnValue = "";
     }

@@ -10,6 +10,7 @@ from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 
 from .models import Document
+from .templates import TEMPLATES
 
 
 class DocumentAccessTests(TestCase):
@@ -62,6 +63,18 @@ class DocumentAccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertTrue(response.content.startswith(b"%PDF-"))
+
+    def test_pdf_export_uses_selected_template(self):
+        self.client.force_login(self.owner)
+        templates = set()
+        for template in TEMPLATES:
+            self.document.template = template
+            self.document.save(update_fields=["template"])
+            response = self.client.get(reverse("download_pdf", args=[self.document.pk]))
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.content.startswith(b"%PDF-"))
+            templates.add(response.content)
+        self.assertEqual(len(templates), len(TEMPLATES))
 
     def test_registration_creates_authenticated_user(self):
         response = self.client.post(reverse("register"), {

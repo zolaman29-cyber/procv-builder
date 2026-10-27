@@ -11,10 +11,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import A4, letter
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+from reportlab.platypus import HRFlowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .models import Document
 from .forms import RegistrationForm
@@ -165,57 +165,211 @@ def delete_document(request, pk):
 def download_pdf(request, pk):
     document = get_object_or_404(Document, pk=pk, owner=request.user)
     content = clean_content(document.content)
+    theme = pdf_theme(document.template)
     buffer = BytesIO()
     pdf = SimpleDocTemplate(
-        buffer, pagesize=A4, rightMargin=18 * mm, leftMargin=18 * mm,
-        topMargin=16 * mm, bottomMargin=16 * mm, title=document.title,
+        buffer, pagesize=A4, rightMargin=12 * mm, leftMargin=12 * mm,
+        topMargin=12 * mm, bottomMargin=12 * mm, title=document.title,
     )
     styles = getSampleStyleSheet()
-    accent = colors.HexColor("#315cba")
-    name_style = ParagraphStyle("Name", parent=styles["Title"], alignment=TA_LEFT, textColor=accent, fontSize=22, leading=26)
-    heading_style = ParagraphStyle("Section", parent=styles["Heading2"], textColor=accent, fontSize=11, leading=14, spaceBefore=11, spaceAfter=4)
-    body_style = ParagraphStyle("Body", parent=styles["BodyText"], fontSize=9.5, leading=13, spaceAfter=3)
-    story = []
-    story.append(Paragraph(escape_pdf(content.get("name") or "Your Name"), name_style))
-    story.append(Paragraph(escape_pdf(content.get("job_title", "")), styles["Heading3"]))
+    accent = colors.HexColor(theme["accent"])
+    name_style = ParagraphStyle(
+        "ResumeName", parent=styles["Title"], alignment=theme["alignment"],
+        textColor=colors.HexColor(theme["name_color"]), fontName=theme["title_font"],
+        fontSize=theme["name_size"], leading=theme["name_size"] * 1.15,
+        spaceAfter=4,
+    )
+    job_style = ParagraphStyle(
+        "ResumeJob", parent=styles["BodyText"], alignment=theme["alignment"],
+        textColor=colors.HexColor(theme["job_color"]), fontName=theme["bold_font"],
+        fontSize=10.5, leading=14, spaceAfter=5,
+    )
+    contact_style = ParagraphStyle(
+        "ResumeContact", parent=styles["BodyText"], alignment=theme["alignment"],
+        textColor=colors.HexColor(theme["contact_color"]), fontSize=7.5, leading=10,
+    )
+    heading_style = ParagraphStyle(
+        "ResumeSection", parent=styles["Heading2"], textColor=accent,
+        fontName=theme["bold_font"], fontSize=9, leading=12,
+        spaceBefore=9, spaceAfter=4,
+    )
+    body_style = ParagraphStyle(
+        "ResumeBody", parent=styles["BodyText"], textColor=colors.HexColor("#515a68"),
+        fontName=theme["body_font"], fontSize=10, leading=15.5, spaceAfter=3,
+    )
+    entry_style = ParagraphStyle(
+        "ResumeEntry", parent=body_style, textColor=colors.HexColor("#333d4e"),
+        fontName=theme["bold_font"], fontSize=9, leading=12, spaceAfter=2,
+    )
+    entry_body_style = ParagraphStyle("ResumeEntryBody", parent=body_style, spaceAfter=0)
+    if theme["two_column"]:
+        for style in (heading_style, body_style):
+            style.leftIndent = 30 * mm
+        entry_style.leftIndent = 30 * mm
+        entry_body_style.leftIndent = 30 * mm
+
+    job_title = Paragraph(escape_pdf(content.get("job_title", "")), job_style)
     contact = " · ".join(filter(None, [
         content.get("email"), content.get("phone"), content.get("location"),
         content.get("linkedin"), content.get("website"),
     ]))
+    header_rows = [
+        [Paragraph(escape_pdf(content.get("name") or "Your Name"), name_style)],
+        [job_title],
+    ]
     if contact:
-        story.append(Paragraph(escape_pdf(contact), body_style))
+        header_rows.append([Paragraph(escape_pdf(contact), contact_style)])
+    header = Table(header_rows, colWidths=[pdf.width])
+    header_style = [
+        ("LEFTPADDING", (0, 0), (-1, -1), theme["header_padding"]),
+        ("RIGHTPADDING", (0, 0), (-1, -1), theme["header_padding"]),
+        ("TOPPADDING", (0, 0), (-1, 0), theme["header_top_padding"]),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), theme["header_bottom_padding"]),
+    ]
+    if theme["header_background"]:
+        header_style.append(("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(theme["header_background"])))
+    if theme["header_border"]:
+        header_style.append(("LINEBELOW", (0, -1), (-1, -1), 1.5, accent))
+    if theme["header_double_border"]:
+        header_style.extend([
+            ("LINEBELOW", (0, -1), (-1, -1), 2, accent),
+            ("LINEBELOW", (0, -1), (-1, -1), 0.5, accent),
+        ])
+    if theme["header_left_border"]:
+        header_style.append(("LINEBEFORE", (0, 0), (0, -1), 4, accent))
+    header.setStyle(TableStyle(header_style))
+    story = [header, Spacer(1, 12)]
+
     for key, heading in (
         ("summary", "Professional Summary"),
         ("experience", "Experience"),
         ("education", "Education"),
-        ("projects", "Projects"),
         ("skills", "Skills"),
+        ("projects", "Projects"),
         ("certifications", "Certifications"),
     ):
         values = content.get(key)
+        if key in {"experience", "education", "projects", "certifications"}:
+            values = [entry for entry in values if any(str(value).strip() for value in entry.values())]
         if not values:
             continue
-        story.append(Paragraph(heading, heading_style))
+        section_heading = "Profile" if key == "summary" else heading
+        if theme["uppercase_sections"]:
+            section_heading = section_heading.upper()
+        story.append(Paragraph(escape_pdf(section_heading), heading_style))
+        if theme["section_rule"]:
+            story.append(HRFlowable(
+                width=pdf.width - (30 * mm if theme["two_column"] else 0),
+                thickness=0.5, color=colors.HexColor("#e5e8ed"),
+                spaceBefore=-2, spaceAfter=5,
+                hAlign="RIGHT" if theme["two_column"] else "LEFT",
+            ))
         if isinstance(values, str):
             story.append(Paragraph(escape_pdf(values).replace("\n", "<br/>"), body_style))
         elif key == "skills":
             story.append(Paragraph(escape_pdf(" · ".join(values)), body_style))
         else:
             for entry in values:
-                label = " — ".join(value for value in (
-                    entry.get("title", ""), entry.get("company", entry.get("institution", "")),
+                label = " · ".join(value for value in (
+                    entry.get("title", ""), entry.get("company") or entry.get("institution", ""),
                     entry.get("dates", ""),
                 ) if value)
+                entry_story = []
                 if label:
-                    story.append(Paragraph(f"<b>{escape_pdf(label)}</b>", body_style))
+                    entry_story.append(Paragraph(escape_pdf(label), entry_style))
                 description = entry.get("description", "")
                 if description:
-                    story.append(Paragraph(escape_pdf(description).replace("\n", "<br/>"), body_style))
-                story.append(Spacer(1, 3))
-    pdf.build(story)
+                    entry_story.append(Paragraph(escape_pdf(description), entry_body_style))
+                if entry_story:
+                    story.append(KeepTogether(entry_story))
+                    story.append(Spacer(1, 6))
+    draw_page = lambda canvas, doc: draw_pdf_template(canvas, doc, theme)
+    pdf.build(story, onFirstPage=draw_page, onLaterPages=draw_page)
     response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{safe_filename(document.title)}.pdf"'
     return response
+
+
+def pdf_theme(template):
+    theme = {
+        "accent": "#315cba",
+        "alignment": TA_LEFT,
+        "body_font": "Helvetica",
+        "bold_font": "Helvetica-Bold",
+        "contact_color": "#6c7482",
+        "header_background": None,
+        "header_border": True,
+        "header_bottom_padding": 5,
+        "header_double_border": False,
+        "header_left_border": False,
+        "header_padding": 0,
+        "header_top_padding": 0,
+        "job_color": "#315cba",
+        "name_color": "#202a3c",
+        "name_size": 23,
+        "section_rule": True,
+        "title_font": "Helvetica-Bold",
+        "uppercase_sections": True,
+        "two_column": False,
+    }
+    if template == "modern":
+        theme.update(
+            accent="#13877c", contact_color="#d2d8e1", header_background="#24334e",
+            header_border=False, header_bottom_padding=12, header_padding=13,
+            header_top_padding=12, job_color="#b7ece2", name_color="#ffffff",
+        )
+    elif template == "minimal":
+        theme.update(accent="#303640", header_border=False, section_rule=False)
+    elif template == "creative":
+        theme.update(
+            accent="#b65840", header_border=False, header_left_border=True,
+            header_padding=12, name_size=27, title_font="Times-Bold",
+        )
+    elif template == "academic":
+        theme.update(
+            accent="#3e5874", alignment=TA_CENTER, body_font="Times-Roman",
+            bold_font="Times-Bold", title_font="Times-Bold",
+        )
+    elif template == "graduate":
+        theme.update(
+            accent="#5e67aa", header_background="#f1f2fa",
+            header_border=False, header_bottom_padding=12, header_padding=13,
+            header_top_padding=12,
+        )
+    elif template == "technical":
+        theme.update(
+            accent="#218261", body_font="Courier", bold_font="Courier-Bold",
+            title_font="Courier-Bold",
+        )
+    elif template == "executive":
+        theme.update(
+            accent="#8a6c35", body_font="Times-Roman", bold_font="Times-Bold",
+            title_font="Times-Bold",
+        )
+    elif template == "two-column":
+        theme.update(accent="#48608c", two_column=True)
+    elif template == "ats":
+        theme.update(
+            accent="#252525", body_font="Helvetica", header_border=True,
+            uppercase_sections=False, section_rule=False,
+        )
+    elif template == "elegant":
+        theme.update(
+            accent="#765875", body_font="Times-Roman", bold_font="Times-Bold",
+            title_font="Times-Bold",
+        )
+    elif template == "international":
+        theme.update(accent="#315b74", header_double_border=True, name_size=20)
+    return theme
+
+
+def draw_pdf_template(canvas, document, theme):
+    if theme["two_column"]:
+        canvas.saveState()
+        canvas.setFillColor(colors.HexColor("#eef1f7"))
+        canvas.rect(0, 0, 26 * mm, A4[1], stroke=0, fill=1)
+        canvas.restoreState()
 
 
 def escape_pdf(value):

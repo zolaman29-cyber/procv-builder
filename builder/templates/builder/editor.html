@@ -10,7 +10,7 @@
   <input class="document-title" id="document-title" value="{{ document.title }}" maxlength="120" aria-label="Document title">
   <span id="save-state" class="save-state">All changes saved</span>
   <div class="editor-actions">
-    <a class="button secondary" href="{% url 'download_pdf' document.pk %}">Download PDF</a>
+    <a class="button secondary download-pdf" href="{% url 'download_pdf' document.pk %}">Download PDF</a>
     <button class="button secondary" type="button" id="print-button">Print</button>
   </div>
 </div>
