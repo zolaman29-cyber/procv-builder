@@ -212,12 +212,27 @@ def save_document(request, pk):
     return JsonResponse({"saved": True, "updated_at": document.updated_at.isoformat()})
 
 
+def title_case_text(value):
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    return " ".join(
+        part[:1].upper() + part[1:].lower() if part and part.isalpha() else part
+        for part in text.replace("  ", " ").split(" ")
+    )
+
+
 def clean_content(raw):
     cleaned = {}
     scalar_keys = ("name", "job_title", "photo", "email", "phone", "location", "linkedin", "website", "summary")
     for key in scalar_keys:
         value = raw.get(key, "")
-        cleaned[key] = str(value)[:5000] if isinstance(value, (str, int, float)) else ""
+        text = str(value)[:5000] if isinstance(value, (str, int, float)) else ""
+        if key in {"name", "job_title", "location"}:
+            text = title_case_text(text)
+        cleaned[key] = text
     for key in ("experience", "education", "projects", "certifications"):
         entries = raw.get(key, [])
         if not isinstance(entries, list):

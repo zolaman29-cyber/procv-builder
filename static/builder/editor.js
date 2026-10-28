@@ -15,20 +15,25 @@
 
   const capitalizeKeys = new Set(["name", "job_title", "location", "title", "company", "institution"]);
 
-  function styleFieldValue(key, value) {
+  function titleCaseValue(value) {
     if (typeof value !== "string") return value;
     const trimmed = value.trim();
     if (!trimmed) return "";
-    if (["summary", "skills", "email", "phone", "linkedin", "website", "photo"].includes(key)) return trimmed;
-
     return trimmed.replace(/\s+/g, " ").split(/\s+/).map((part) => {
-      if (!part) return part;
       const cleaned = part.replace(/[^A-Za-z0-9'&./-]/g, "");
       if (!cleaned) return part;
       if (cleaned.length === 1) return cleaned.toUpperCase();
       if (/^[A-Z0-9&/.-]+$/i.test(cleaned) && !/^[a-z]+$/i.test(cleaned)) return cleaned;
       return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
     }).join(" ");
+  }
+
+  function styleFieldValue(key, value) {
+    if (typeof value !== "string") return value;
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    if (["summary", "skills", "email", "phone", "linkedin", "website", "photo"].includes(key)) return trimmed;
+    return titleCaseValue(trimmed);
   }
 
   function normalizeFieldValue(key, value) {
@@ -133,9 +138,15 @@
     if (element) element.textContent = text || "";
   }
 
+  function formatPreviewText(value, fallback = "") {
+    const typed = value ?? "";
+    if (!typed) return fallback;
+    return titleCaseValue(String(typed));
+  }
+
   function updatePreview() {
-    setText('[data-preview="name"]', content.name || "Your Name");
-    setText('[data-preview="job_title"]', content.job_title);
+    setText('[data-preview="name"]', formatPreviewText(content.name, "Your Name"));
+    setText('[data-preview="job_title"]', formatPreviewText(content.job_title));
     const photo = content.photo || "";
     const photoEl = preview.querySelector('[data-preview="photo"]');
     const photoWrap = preview.querySelector(".resume-photo-wrap");
@@ -150,7 +161,7 @@
         photoWrap.hidden = true;
       }
     }
-    setText('[data-preview="contact"]', [content.email, content.phone, content.location, content.linkedin, content.website].filter(Boolean).join("  ·  "));
+    setText('[data-preview="contact"]', [content.email, content.phone, formatPreviewText(content.location), content.linkedin, content.website].filter(Boolean).join("  ·  "));
     setText('[data-preview="summary"]', content.summary);
     setText('[data-preview="skills"]', Array.isArray(content.skills) ? content.skills.join("  ·  ") : content.skills);
     for (const section of preview.querySelectorAll("[data-preview-section]")) {
