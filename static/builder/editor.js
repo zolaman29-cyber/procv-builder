@@ -13,14 +13,13 @@
   let pending = false;
   let failed = false;
 
-  const capitalizeKeys = new Set(["name", "job_title", "location"]);
+  const capitalizeKeys = new Set(["name", "job_title", "location", "title", "company", "institution"]);
 
   function styleFieldValue(key, value) {
     if (typeof value !== "string") return value;
     const trimmed = value.trim();
     if (!trimmed) return "";
-    if (key === "summary" || key === "skills") return trimmed;
-    if (key === "email" || key === "phone" || key === "linkedin" || key === "website" || key === "photo") return trimmed;
+    if (["summary", "skills", "email", "phone", "linkedin", "website", "photo"].includes(key)) return trimmed;
     return trimmed.replace(/\s+/g, " ").split(/\s+/).map((part) => {
       if (!part) return part;
       if (part.length === 1) return part.toUpperCase();
@@ -36,21 +35,27 @@
     return styleFieldValue(key, value ?? "");
   }
 
+  function formatCapitalizedInput(input, key, value) {
+    if (capitalizeKeys.has(key)) {
+      const formatted = styleFieldValue(key, value ?? input.value);
+      input.value = formatted;
+      input.classList.add("capitalize-field");
+      return formatted;
+    }
+    return value ?? input.value;
+  }
+
   for (const input of document.querySelectorAll("[data-field]")) {
     const key = input.dataset.field;
     const value = content[key] ?? (key === "skills" ? [] : "");
-    input.value = key === "skills" ? (Array.isArray(value) ? value.join("\n") : value) : value;
+    const formattedValue = key === "skills" ? (Array.isArray(value) ? value.join("\n") : value) : formatCapitalizedInput(input, key, value);
+    input.value = formattedValue;
     if (capitalizeKeys.has(key)) {
       input.classList.add("capitalize-field");
     }
     input.addEventListener("input", () => {
-      const nextValue = normalizeFieldValue(key, input.value);
-      content[key] = nextValue;
-      if (capitalizeKeys.has(key)) {
-        const formatted = styleFieldValue(key, input.value);
-        input.value = formatted;
-        content[key] = formatted;
-      }
+      const formatted = formatCapitalizedInput(input, key, input.value);
+      content[key] = normalizeFieldValue(key, formatted);
       updatePreview();
       scheduleSave();
     });
@@ -61,7 +66,8 @@
     const node = document.getElementById("entry-template").content.firstElementChild.cloneNode(true);
     for (const input of node.querySelectorAll("[data-entry-field]")) {
       const key = input.dataset.entryField;
-      input.value = item[key] || (key === "company" ? item.institution || "" : "");
+      const rawValue = item[key] || (key === "company" ? item.institution || "" : "");
+      input.value = capitalizeKeys.has(key) ? styleFieldValue(key, rawValue) : rawValue;
       if (["title", "company", "institution"].includes(key)) {
         input.classList.add("capitalize-field");
       }
