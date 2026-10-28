@@ -29,6 +29,7 @@ from .templates import TEMPLATES
 EMPTY_CONTENT = {
     "name": "",
     "job_title": "",
+    "photo": "",
     "email": "",
     "phone": "",
     "location": "",
@@ -211,7 +212,7 @@ def save_document(request, pk):
 
 def clean_content(raw):
     cleaned = {}
-    scalar_keys = ("name", "job_title", "email", "phone", "location", "linkedin", "website", "summary")
+    scalar_keys = ("name", "job_title", "photo", "email", "phone", "location", "linkedin", "website", "summary")
     for key in scalar_keys:
         value = raw.get(key, "")
         cleaned[key] = str(value)[:5000] if isinstance(value, (str, int, float)) else ""

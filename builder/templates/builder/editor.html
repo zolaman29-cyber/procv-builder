@@ -20,11 +20,12 @@
     <section class="form-section">
       <h2>Personal details</h2>
       <div class="field-grid">
-        <label>Full name<input data-field="name" placeholder="Jordan Taylor"></label>
-        <label>Professional title<input data-field="job_title" placeholder="Product Designer"></label>
+        <label>Full name<input class="capitalize-field" data-field="name" placeholder="Jordan Taylor"></label>
+        <label>Professional title<input class="capitalize-field" data-field="job_title" placeholder="Product Designer"></label>
+        <label>Profile photo URL<input data-field="photo" type="url" placeholder="https://example.com/profile.jpg"></label>
         <label>Email<input data-field="email" type="email" placeholder="jordan@example.com"></label>
         <label>Phone<input data-field="phone" placeholder="+1 555 010 2020"></label>
-        <label>Location<input data-field="location" placeholder="City, Country"></label>
+        <label>Location<input class="capitalize-field" data-field="location" placeholder="City, Country"></label>
         <label>LinkedIn<input data-field="linkedin" placeholder="linkedin.com/in/you"></label>
         <label>Website<input data-field="website" placeholder="yourportfolio.com"></label>
       </div>
@@ -53,7 +54,16 @@
   <section class="preview-panel" aria-label="Live document preview">
     <div class="preview-toolbar"><div><strong>Live preview</strong><span class="muted"> · A4</span></div><label>Template <select id="template-select">{% for key,label in template_choices %}<option value="{{ key }}" {% if document.template == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label></div>
     <article id="document-preview" class="resume-page template-{{ document.template }}">
-      <header class="resume-header"><h1 data-preview="name">Your Name</h1><p data-preview="job_title" class="resume-job"></p><p data-preview="contact" class="resume-contact"></p></header>
+      <header class="resume-header">
+        <div class="resume-header-row">
+          <div class="resume-photo-wrap"><img data-preview="photo" alt="Profile photo" /></div>
+          <div class="resume-header-copy">
+            <h1 data-preview="name">Your Name</h1>
+            <p data-preview="job_title" class="resume-job"></p>
+            <p data-preview="contact" class="resume-contact"></p>
+          </div>
+        </div>
+      </header>
       <section class="preview-section" data-preview-section="summary"><h2>Profile</h2><p data-preview="summary"></p></section>
       <section class="preview-section" data-preview-section="experience"><h2>Experience</h2><div data-preview-list="experience"></div></section>
       <section class="preview-section" data-preview-section="education"><h2>Education</h2><div data-preview-list="education"></div></section>
