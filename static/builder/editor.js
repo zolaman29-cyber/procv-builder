@@ -20,11 +20,14 @@
     const trimmed = value.trim();
     if (!trimmed) return "";
     if (["summary", "skills", "email", "phone", "linkedin", "website", "photo"].includes(key)) return trimmed;
+
     return trimmed.replace(/\s+/g, " ").split(/\s+/).map((part) => {
       if (!part) return part;
-      if (part.length === 1) return part.toUpperCase();
-      if (/^[A-Z0-9&/.-]+$/i.test(part) && !/^[a-z]+$/i.test(part)) return part;
-      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+      const cleaned = part.replace(/[^A-Za-z0-9'&./-]/g, "");
+      if (!cleaned) return part;
+      if (cleaned.length === 1) return cleaned.toUpperCase();
+      if (/^[A-Z0-9&/.-]+$/i.test(cleaned) && !/^[a-z]+$/i.test(cleaned)) return cleaned;
+      return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
     }).join(" ");
   }
 
@@ -58,6 +61,24 @@
       content[key] = normalizeFieldValue(key, formatted);
       updatePreview();
       scheduleSave();
+    });
+  }
+
+  const photoUpload = document.getElementById("photo-upload");
+  if (photoUpload) {
+    photoUpload.addEventListener("change", (event) => {
+      const [file] = event.target.files || [];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || "");
+        content.photo = dataUrl;
+        const photoField = document.querySelector('[data-field="photo"]');
+        if (photoField) photoField.value = dataUrl;
+        updatePreview();
+        scheduleSave();
+      };
+      reader.readAsDataURL(file);
     });
   }
 

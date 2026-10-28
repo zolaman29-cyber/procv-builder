@@ -22,7 +22,10 @@
       <div class="field-grid">
         <label>Full name<input class="capitalize-field" data-field="name" placeholder="Jordan Taylor"></label>
         <label>Professional title<input class="capitalize-field" data-field="job_title" placeholder="Product Designer"></label>
-        <label>Profile photo URL<input data-field="photo" type="url" placeholder="https://example.com/profile.jpg"></label>
+        <div class="photo-fields">
+          <label>Profile photo URL<input data-field="photo" type="url" placeholder="https://example.com/profile.jpg"></label>
+          <label class="file-label">Upload photo<input id="photo-upload" type="file" accept="image/*"></label>
+        </div>
         <label>Email<input data-field="email" type="email" placeholder="jordan@example.com"></label>
         <label>Phone<input data-field="phone" placeholder="+1 555 010 2020"></label>
         <label>Location<input class="capitalize-field" data-field="location" placeholder="City, Country"></label>

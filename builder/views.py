@@ -20,7 +20,9 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import HRFlowable, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.lib.utils import ImageReader
+from reportlab.platypus import HRFlowable, Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from urllib.request import Request, urlopen
 
 from .models import DailySiteStat, Document
 from .forms import RegistrationForm
@@ -336,7 +338,20 @@ def download_pdf(request, pk):
     if theme["header_left_border"]:
         header_style.append(("LINEBEFORE", (0, 0), (0, -1), 4, accent))
     header.setStyle(TableStyle(header_style))
-    story = [header, Spacer(1, 12)]
+    story = []
+    photo_url = str(content.get("photo", "") or "").strip()
+    photo_image = None
+    if photo_url:
+        try:
+            request = Request(photo_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urlopen(request, timeout=10) as response:
+                photo_image = ImageReader(BytesIO(response.read()))
+        except Exception:
+            photo_image = None
+    if photo_image:
+        story.append(Image(photo_image, width=22 * mm, height=22 * mm, kind="proportional"))
+        story.append(Spacer(1, 8))
+    story.extend([header, Spacer(1, 12)])
 
     for key, heading in (
         ("summary", "Professional Summary"),
