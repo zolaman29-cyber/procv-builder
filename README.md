@@ -43,10 +43,11 @@ When using PostgreSQL, create the database and its login role before running `mi
 - Password reset through the configured email backend.
 - Django admin for authorized staff; private document content is not registered in the admin.
 - Staff-only site stats at `/admin/stats/`, including account and document totals plus daily page views, PDF downloads, and registrations.
+- Staff-only user directory at `/admin/users/` with search, account-status filters, document metadata, and safe activate/deactivate controls for standard accounts.
 
 The PDF exporter creates selectable text and paginates long documents. Printing uses the browser's print dialog and A4 print CSS. The current editor focuses on core résumé content (contact details, summary, experience, education, skills, projects, and certifications); photo cropping, custom sections, AI writing, and DOCX export are not included yet.
 
-The site stats page is restricted to accounts with Django's `is_staff` permission. Create the first administrator with `python manage.py createsuperuser`, then sign in at `/admin/` and grant staff access to the intended account. Page views count successful HTML page loads, including reloads; they are not unique visitors. The app stores only daily aggregate counts and does not record visitor identities or IP addresses. PDF downloads count successful PDF exports.
+The site stats and user pages are restricted to accounts with Django's `is_staff` permission. The user directory does not expose document contents, and staff cannot change their own status or another staff/superuser account's status. Use Django admin for privileged account administration. Create the first administrator with `python manage.py createsuperuser`, then sign in at `/admin/` and grant staff access to the intended account. Page views count successful HTML page loads, including reloads; they are not unique visitors. The app stores only daily aggregate counts and does not record visitor identities or IP addresses. PDF downloads count successful PDF exports.
 
 ## Production notes
 

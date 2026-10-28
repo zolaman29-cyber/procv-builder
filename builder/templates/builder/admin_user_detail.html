@@ -1,0 +1,44 @@
+{% extends "builder/base.html" %}
+{% block title %}{{ managed_user.username }} · Users{% endblock %}
+{% block content %}
+<section class="page-shell stats-shell">
+  <p class="eyebrow">SITE ADMINISTRATION</p>
+  <a class="back-link admin-back-link" href="{% url 'user_list' %}">← Back to users</a>
+  <div class="section-heading user-detail-heading">
+    <div><h1>{{ managed_user.username }}</h1><p class="muted">{{ managed_user.email|default:"No email set" }}</p></div>
+    <div class="user-detail-actions">
+      <span class="account-badge {% if not managed_user.is_active %}account-inactive{% endif %}">{% if managed_user.is_active %}Active{% else %}Inactive{% endif %}</span>
+      {% if managed_user.pk != request.user.pk and not managed_user.is_staff and not managed_user.is_superuser %}
+        <form method="post" action="{% url 'toggle_user_active' managed_user.pk %}">
+          {% csrf_token %}
+          <button class="button {% if managed_user.is_active %}secondary{% else %}primary{% endif %}" type="submit">{% if managed_user.is_active %}Deactivate account{% else %}Activate account{% endif %}</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stats-cards user-count-cards">
+    <article class="stats-card"><span>Joined</span><strong class="user-detail-value">{{ managed_user.date_joined|date:"M j, Y" }}</strong></article>
+    <article class="stats-card"><span>Last login</span><strong class="user-detail-value">{% if managed_user.last_login %}{{ managed_user.last_login|date:"M j, Y" }}{% else %}Never{% endif %}</strong></article>
+    <article class="stats-card"><span>Access</span><strong class="user-detail-value">{% if managed_user.is_superuser %}Superuser{% elif managed_user.is_staff %}Staff{% else %}User{% endif %}</strong></article>
+    <article class="stats-card"><span>Documents</span><strong>{{ documents|length }}</strong></article>
+  </div>
+
+  <section class="stats-table-card">
+    <h2>Documents</h2>
+    <p class="muted small">Document content is private and is not shown in this account overview.</p>
+    <div class="stats-table-scroll">
+      <table class="stats-table">
+        <thead><tr><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Created</th><th scope="col">Last edited</th></tr></thead>
+        <tbody>
+          {% for document in documents %}
+            <tr><th scope="row">{{ document.title }}</th><td>{{ document.get_kind_display }}</td><td>{{ document.created_at|date:"M j, Y" }}</td><td>{{ document.updated_at|date:"M j, Y" }}</td></tr>
+          {% empty %}
+            <tr><td class="empty-table" colspan="4">This user has no documents.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
+{% endblock %}

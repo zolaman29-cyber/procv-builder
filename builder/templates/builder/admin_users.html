@@ -1,0 +1,57 @@
+{% extends "builder/base.html" %}
+{% block title %}Users · ProCV Builder{% endblock %}
+{% block content %}
+<section class="page-shell stats-shell">
+  <div class="section-heading">
+    <div><p class="eyebrow">SITE ADMINISTRATION</p><h1>Users</h1><p class="muted">Find accounts, review their status, and manage standard user access.</p></div>
+    <form method="get" class="filters">
+      <label class="sr-only" for="user-search">Search users</label>
+      <input id="user-search" type="search" name="q" value="{{ query }}" placeholder="Username or email">
+      <label class="sr-only" for="user-status">Account status</label>
+      <select id="user-status" name="status">
+        <option value="all" {% if status == "all" %}selected{% endif %}>All accounts</option>
+        <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
+      </select>
+      <button class="button secondary" type="submit">Search</button>
+    </form>
+  </div>
+
+  <div class="stats-cards user-count-cards">
+    <article class="stats-card"><span>All accounts</span><strong>{{ total_users }}</strong></article>
+    <article class="stats-card"><span>Active</span><strong>{{ active_users }}</strong></article>
+    <article class="stats-card"><span>Inactive</span><strong>{{ inactive_users }}</strong></article>
+  </div>
+
+  <section class="stats-table-card">
+    <h2>Account list</h2>
+    <div class="stats-table-scroll">
+      <table class="stats-table">
+        <thead><tr><th scope="col">User</th><th scope="col">Documents</th><th scope="col">Joined</th><th scope="col">Last login</th><th scope="col">Status</th><th scope="col">Access</th></tr></thead>
+        <tbody>
+          {% for account in page %}
+            <tr>
+              <th scope="row"><a href="{% url 'user_detail' account.pk %}">{{ account.username }}</a><small class="user-email">{{ account.email|default:"No email set" }}</small></th>
+              <td>{{ account.document_count }}</td>
+              <td>{{ account.date_joined|date:"M j, Y" }}</td>
+              <td>{% if account.last_login %}{{ account.last_login|date:"M j, Y · g:i A" }}{% else %}Never{% endif %}</td>
+              <td><span class="account-badge {% if not account.is_active %}account-inactive{% endif %}">{% if account.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+              <td>{% if account.is_superuser %}Superuser{% elif account.is_staff %}Staff{% else %}User{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td class="empty-table" colspan="6">No users match these filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="User list pages">
+        {% if page.has_previous %}<a class="button secondary" href="?q={{ query|urlencode }}&status={{ status }}&page={{ page.previous_page_number }}">Previous</a>{% else %}<span class="button secondary disabled-button">Previous</span>{% endif %}
+        <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="button secondary" href="?q={{ query|urlencode }}&status={{ status }}&page={{ page.next_page_number }}">Next</a>{% else %}<span class="button secondary disabled-button">Next</span>{% endif %}
+      </nav>
+    {% endif %}
+    <p class="muted small user-admin-note">Staff and superuser accounts are protected from status changes here. For privileged account administration, use Django admin.</p>
+  </section>
+</section>
+{% endblock %}

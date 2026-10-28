@@ -43,6 +43,66 @@ class DocumentAccessTests(TestCase):
         self.assertContains(response, "Site stats")
         self.assertContains(response, "not unique visitors")
 
+    def test_only_staff_can_view_user_management_pages(self):
+        list_url = reverse("user_list")
+        detail_url = reverse("user_detail", args=[self.other.pk])
+        self.assertEqual(self.client.get(list_url).status_code, 302)
+        self.assertEqual(self.client.get(detail_url).status_code, 302)
+
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(list_url).status_code, 302)
+        self.assertEqual(self.client.get(detail_url).status_code, 302)
+
+    def test_staff_can_search_users_and_view_document_metadata(self):
+        self.document.content = {"name": "Private Name", "summary": "Private document content"}
+        self.document.save(update_fields=["content"])
+        self.owner.is_staff = True
+        self.owner.save(update_fields=["is_staff"])
+        self.client.force_login(self.owner)
+
+        response = self.client.get(reverse("user_list"), {"q": "other", "status": "active"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "other")
+        self.assertNotContains(response, "owner@example.com")
+
+        response = self.client.get(reverse("user_detail", args=[self.owner.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Private CV")
+        self.assertContains(response, "Document content is private")
+        self.assertNotContains(response, "Private Name")
+        self.assertNotContains(response, "Private document content")
+
+    def test_staff_can_toggle_regular_user_status_only_with_post(self):
+        self.owner.is_staff = True
+        self.owner.save(update_fields=["is_staff"])
+        self.client.force_login(self.owner)
+        action_url = reverse("toggle_user_active", args=[self.other.pk])
+
+        self.assertEqual(self.client.get(action_url).status_code, 405)
+        response = self.client.post(action_url)
+        self.assertRedirects(response, reverse("user_detail", args=[self.other.pk]))
+        self.other.refresh_from_db()
+        self.assertFalse(self.other.is_active)
+
+        self.client.post(action_url)
+        self.other.refresh_from_db()
+        self.assertTrue(self.other.is_active)
+
+    def test_staff_cannot_change_own_or_other_staff_status(self):
+        self.owner.is_staff = True
+        self.owner.save(update_fields=["is_staff"])
+        self.other.is_staff = True
+        self.other.save(update_fields=["is_staff"])
+        self.client.force_login(self.owner)
+
+        self.client.post(reverse("toggle_user_active", args=[self.owner.pk]))
+        self.client.post(reverse("toggle_user_active", args=[self.other.pk]))
+
+        self.owner.refresh_from_db()
+        self.other.refresh_from_db()
+        self.assertTrue(self.owner.is_active)
+        self.assertTrue(self.other.is_active)
+
     def test_site_stats_summarize_users_documents_and_daily_activity(self):
         today = timezone.localdate()
         DailySiteStat.objects.create(

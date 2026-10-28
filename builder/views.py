@@ -9,6 +9,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -113,6 +115,54 @@ def site_stats(request):
         "total_users": User.objects.count(),
         "total_documents": Document.objects.count(),
     })
+
+
+@staff_member_required
+def user_list(request):
+    users = User.objects.annotate(document_count=Count("documents"))
+    query = request.GET.get("q", "").strip()[:100]
+    status = request.GET.get("status", "all")
+    if query:
+        users = users.filter(Q(username__icontains=query) | Q(email__icontains=query))
+    if status == "active":
+        users = users.filter(is_active=True)
+    elif status == "inactive":
+        users = users.filter(is_active=False)
+    else:
+        status = "all"
+    page = Paginator(users.order_by("-date_joined"), 25).get_page(request.GET.get("page"))
+    return render(request, "builder/admin_users.html", {
+        "page": page,
+        "query": query,
+        "status": status,
+        "total_users": User.objects.count(),
+        "active_users": User.objects.filter(is_active=True).count(),
+        "inactive_users": User.objects.filter(is_active=False).count(),
+    })
+
+
+@staff_member_required
+def user_detail(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    documents = user.documents.only("id", "title", "kind", "created_at", "updated_at")
+    return render(request, "builder/admin_user_detail.html", {
+        "managed_user": user,
+        "documents": documents,
+    })
+
+
+@staff_member_required
+@require_POST
+def toggle_user_active(request, pk):
+    user = get_object_or_404(User, pk=pk)
+    if user.pk == request.user.pk or user.is_staff or user.is_superuser:
+        messages.error(request, "For safety, staff cannot change their own status or another staff account.")
+    else:
+        user.is_active = not user.is_active
+        user.save(update_fields=["is_active"])
+        state = "activated" if user.is_active else "deactivated"
+        messages.success(request, f"{user.username} was {state}.")
+    return redirect("user_detail", pk=user.pk)
 
 
 @login_required
